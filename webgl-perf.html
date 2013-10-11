@@ -1,0 +1,89 @@
+<html>
+	<head>
+		<title>webgl-perf</title>
+		<style>
+canvas { 
+float: right;
+width: 80%; 
+height: 80% 
+}</style>
+	</head>
+	<body>  
+<link rel="stylesheet" 
+href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.10.3/themes/smoothness/jquery-ui.css" />	
+<script src="http://rawgithub.com/mrdoob/three.js/master/build/three.js"></script>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+<script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.10.3/jquery-ui.min.js"></script>
+		<script>
+var run=true;		
+var scene;
+var camera;
+var renderer;
+var cube;
+var distance=5;
+
+
+function stop(){
+	run=false;
+}		
+function start(){
+	run=true;
+	init();
+}
+
+function render(timestamp) {
+	if(!run){
+		return;
+	}
+	requestAnimationFrame(render);
+	cube.rotation.x += 0.1;
+	cube.rotation.y += 0.1;	
+	renderer.render(scene, camera);
+}
+
+function init(){
+scene = new THREE.Scene();
+camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
+renderer = new THREE.WebGLRenderer({canvas: canvasId});
+renderer.setSize( window.innerWidth, window.innerHeight );
+document.body.appendChild( renderer.domElement );
+var geometry = new THREE.CubeGeometry(1,1,1);
+var material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
+cube = new THREE.Mesh( geometry, material );
+scene.add( cube );
+camera.position.z = distance;
+render();
+}
+
+  $(function() {
+    $( "#slider" ).slider({
+      min: 1,
+      max: 10,
+      value: distance,
+      slide: function( event, ui ) {
+        $( "#distance" ).val( ui.value );
+		distance=parseFloat(ui.value);
+      }
+    });
+    $( "#distance" ).val( $( "#slider" ).slider( "value" ) );
+  });
+
+		</script>
+<p>This tool is designed to be used with other tools like 
+<ul>
+<li><a href="http://www.techpowerup.com/gpuz/">GPU-Z</a>
+for monitoring GPU load during execution
+</li>
+<li>Your ears to hear if fans do not make too much noise</li>
+</ul>
+</p>
+
+<label for="distance">Distance:</label>
+<div id="slider" style="width: 10%;"></div>
+<input type="text" id="distance" style="border: 0;"/>
+<br/>
+<button id="stop" onclick="stop()">Stop</button>	
+<button id="start" onclick="start()">Start</button>	
+<canvas id="canvasId"></canvas>	
+	</body>
+</html>
