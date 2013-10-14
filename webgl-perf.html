@@ -36,6 +36,7 @@ var camera;
 var renderer;
 var cube;
 var distance=5;
+var rpm=20;
 var renderCount;
 var renderElapsedSum;
 var fps;
@@ -57,14 +58,45 @@ function start(){
 	runStart=performance.now();
 	init();
 }
+
+function fixNumber(n,scale){
+	return (parseInt(n.toString()/scale)).toFixed()*scale;
+}
+/** 
+Show dynamic number so that it seems quite stable 
+integer if possible
+*/
+function showDynamicNumber(n){
+	var precision=0;
+	if(n>10000){
+	    return fixNumber(n,1000);
+	}else if(n>1000){
+	    return fixNumber(n,100);
+	}else if(n>5){
+		precision=0;
+	}else if(n>0.5){
+		precision=1;	   
+	}else if(n>0.05){
+		precision=2;	   
+	}else{
+		return n.toString();
+	}
+	return n.toFixed(precision);
+}
+
 function updateStats(){
 	var renderElapsed=renderEnd-renderStart;
+	var s="";
 	renderElapsedSum+=renderElapsed;
 	renderCount++;
-	theoreticalFps=1000*renderCount/renderElapsedSum;
 	fps=1000*renderCount/(renderEnd-runStart);
-    $( "#fps" ).text(fps.toFixed(0));
-    $( "#theoreticalFps" ).text(theoreticalFps.toFixed(0));
+    $( "#fps" ).text(showDynamicNumber(fps));
+	s="Pending";
+	if(renderElapsedSum>0){
+		theoreticalFps=1000*renderCount/renderElapsedSum;
+		s=showDynamicNumber(theoreticalFps);
+	}
+	$( "#theoreticalFps" ).text(s);
 }
 
 function render(timestamp) {
@@ -72,7 +104,13 @@ function render(timestamp) {
 		return;
 	}
 	renderStart=performance.now();
-	var rotation=(runStart-renderStart)/1000;
+	var renderTime;
+	if(timestamp){
+		renderTime=timestamp;
+	}else{
+		renderTime=renderStart;
+	}
+	var rotation=rpm/60*Math.PI*(renderTime-runStart)/1000;
 	requestID=requestAnimationFrame(render);
 	cube.rotation.x = rotation;
 	cube.rotation.y = rotation;	
@@ -100,7 +138,7 @@ render();
 }
 
 $(function() {
-    $( "#slider" ).slider({
+    $( "#distance-slider" ).slider({
       min: 2.5,
       max: 10,
 	  step: 0.1,
@@ -111,7 +149,19 @@ $(function() {
 		start();
       }
     });
-    $( "#distance" ).val( $( "#slider" ).slider( "value" ) );
+    $( "#distance" ).val( $( "#distance-slider" ).slider( "value" ) );
+    $( "#rpm-slider" ).slider({
+      min: 1,
+      max: 600,
+	  step: 1,
+      value: rpm,
+      slide: function( event, ui ) {
+        $( "#rpm" ).val( ui.value );
+		rpm=parseFloat(ui.value);
+		start();
+      }
+    });
+    $( "#rpm" ).val( $( "#rpm-slider" ).slider( "value" ) );
 });
 
 		</script>
@@ -126,7 +176,11 @@ for monitoring GPU load during execution
 
 <label for="distance">Distance:</label>
 <input type="text" id="distance" style="border: 0;"/>
-<div id="slider" style="width: 80%;"></div>
+<div id="distance-slider" style="width: 80%;"></div>
+<br/>
+<label for="rpm">Revolutions Per Minute:</label>
+<input type="text" id="rpm" style="border: 0;"/>
+<div id="rpm-slider" style="width: 80%;"></div>
 <br/>
 actual FPS: <span id="fps"></span>
 <br/>
