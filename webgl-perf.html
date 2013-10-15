@@ -45,6 +45,7 @@ var runStart;
 var renderStart;
 var renderEnd;
 var requestID;
+var sceneAdds;
 
 function stop(){
 	run=false;
@@ -53,6 +54,9 @@ function stop(){
 function start(){
 	if(run){
 		stop();
+	}
+	if(!sceneAdds){
+		sceneSelector();
 	}
 	run=true;
 	runStart=performance.now();
@@ -119,22 +123,38 @@ function render(timestamp) {
 	setTimeout(function(){updateStats();},10);	
 }
 
+function sceneSelector(){
+	sceneAdds=$("select.sceneSelector").val();
+	start();
+}
+
+function singleCube(){
+	var geometry = new THREE.CubeGeometry(1,1,1);
+	var material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
+	cube = new THREE.Mesh( geometry, material );
+	scene.add( cube );
+}
+
+function ambientLight(){
+	var light = new THREE.AmbientLight( 0x404040 );
+	scene.add( light );
+}
+
 function init(){
-scene = new THREE.Scene();
-camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
-renderer = new THREE.WebGLRenderer({canvas: canvasId});
-renderer.setSize( window.innerWidth, window.innerHeight );
-document.body.appendChild( renderer.domElement );
-var geometry = new THREE.CubeGeometry(1,1,1);
-var material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
-cube = new THREE.Mesh( geometry, material );
-scene.add( cube );
-var light = new THREE.AmbientLight( 0x404040 );
-scene.add( light );
-camera.position.z = distance;
-renderCount=0;
-renderElapsedSum=0;
-render();
+	scene = new THREE.Scene();
+	camera = new THREE.PerspectiveCamera
+		( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
+	renderer = new THREE.WebGLRenderer({canvas: canvasId});
+	renderer.setSize( window.innerWidth, window.innerHeight );
+	document.body.appendChild( renderer.domElement );
+	camera.position.z = distance;
+	for(var i=0;i<sceneAdds.length;i++){
+	  var name=sceneAdds[i];
+	  window[name]();
+	}
+	renderCount=0;
+	renderElapsedSum=0;
+	render();
 }
 
 $(function() {
@@ -164,6 +184,9 @@ $(function() {
     $( "#rpm" ).val( $( "#rpm-slider" ).slider( "value" ) );
 });
 
+$( document ).ready(function() {
+	$("select.sceneSelector").change(sceneSelector);
+});
 		</script>
 <div id="text">		
 <p>This tool is designed to be used with other tools</p> 
@@ -185,7 +208,14 @@ for monitoring GPU load during execution
 actual FPS: <span id="fps"></span>
 <br/>
 theoretical FPS: <span id="theoreticalFps"></span>
-<br/>
+<h3>Objects</h3>
+<select class="sceneSelector" multiple="multiple">
+  <option selected="true">singleCube</option>
+</select>
+<h3>Lights</h3>
+<select class="sceneSelector" multiple="multiple">
+  <option selected="true">ambientLight</option>
+</select>
 <button id="stop" onclick="stop()">Stop</button>	
 <button id="start" onclick="start()">Start</button>
 </div>	
