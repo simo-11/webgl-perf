@@ -32,11 +32,12 @@ performance.now = (function() {
 		
 var run=true;		
 var scene;
+var objects;
 var camera;
 var renderer;
-var cube;
 var distance=5;
 var rpm=20;
+var objectCount=1;
 var renderCount;
 var renderElapsedSum;
 var fps;
@@ -116,8 +117,8 @@ function render(timestamp) {
 	}
 	var rotation=rpm/60*Math.PI*(renderTime-runStart)/1000;
 	requestID=requestAnimationFrame(render);
-	cube.rotation.x = rotation;
-	cube.rotation.y = rotation;	
+	objects.rotation.x = rotation;
+	objects.rotation.y = rotation;	
 	renderer.render(scene, camera);
 	renderEnd=performance.now();
 	setTimeout(function(){updateStats();},10);	
@@ -128,11 +129,35 @@ function sceneSelector(){
 	start();
 }
 
-function singleCube(){
-	var geometry = new THREE.CubeGeometry(1,1,1);
-	var material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
-	cube = new THREE.Mesh( geometry, material );
-	scene.add( cube );
+/**
+*/
+function getRandom(scale){
+   if(!scale){
+      scale=1;
+   }
+   return scale*Math.random();
+}
+
+function cubes(){
+	for(var i=0;i<objectCount;i++){
+	    var color = new THREE.Color();
+	    var r=1;
+		var g=getRandom(0.2);
+		var b=getRandom(0.1);
+		color.setRGB(r,g,b);
+		var size=0.3*getRandom(0.7);
+		var geometry = new THREE.CubeGeometry(size,size,size);
+		var material = new THREE.MeshBasicMaterial( 
+		{ 
+		transparent: true,
+		opacity: 0.2,
+		depthWrite: false
+		} );
+		material.color=color;
+		var cube = new THREE.Mesh( geometry, material );
+	    cube.position.set(getRandom(),getRandom(),getRandom());
+		objects.add( cube );
+	}
 }
 
 function ambientLight(){
@@ -142,6 +167,8 @@ function ambientLight(){
 
 function init(){
 	scene = new THREE.Scene();
+	objects = new THREE.Object3D();
+	scene.add(objects);
 	camera = new THREE.PerspectiveCamera
 		( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
 	renderer = new THREE.WebGLRenderer({canvas: canvasId});
@@ -182,6 +209,18 @@ $(function() {
       }
     });
     $( "#rpm" ).val( $( "#rpm-slider" ).slider( "value" ) );
+    $( "#objectCount-slider" ).slider({
+      min: 1,
+      max: 1000,
+	  step: 1,
+      value: objectCount,
+      slide: function( event, ui ) {
+        $( "#objectCount" ).val( ui.value );
+		objectCount=parseFloat(ui.value);
+		start();
+      }
+    });
+    $( "#objectCount" ).val( $( "#objectCount-slider" ).slider( "value" ) );
 });
 
 $( document ).ready(function() {
@@ -210,8 +249,12 @@ actual FPS: <span id="fps"></span>
 theoretical FPS: <span id="theoreticalFps"></span>
 <h3>Objects</h3>
 <select class="sceneSelector" multiple="multiple">
-  <option selected="true">singleCube</option>
+  <option selected="true">cubes</option>
 </select>
+<br/>
+<label for="count">Count:</label>
+<input type="text" id="objectCount" style="border: 0;"/>
+<div id="objectCount-slider" style="width: 80%;"></div>
 <h3>Lights</h3>
 <select class="sceneSelector" multiple="multiple">
   <option selected="true">ambientLight</option>
