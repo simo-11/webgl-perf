@@ -11,7 +11,7 @@ Reorganize so that fewer objects are used.
 Currently each box is distinct object.
 
 References:
-- http://threejs.org/docs/
+- http://threejs.org/
 - http://soledadpenades.com/articles/three-js-tutorials/object-picking/
 
 
