@@ -30,9 +30,9 @@ performance.now = (function() {
         Date.now 
 })();
 		
-var run=true;		
+var run=false;		
 var scene;
-var objects;
+var lookat;
 var camera;
 var renderer;
 var distance=5;
@@ -43,16 +43,29 @@ var renderElapsedSum;
 var fps;
 var theoreticalFps;
 var runStart;
+var rotationStart;
+var pauseStart;
 var renderStart;
 var renderEnd;
 var requestID;
 var sceneAdds;
 
+function stopOrStart(){
+	if(run){
+	    pauseStart=performance.now();
+		stop();
+	}else{
+	    start(false);
+	}
+}		
 function stop(){
 	run=false;
 	window.cancelAnimationFrame(requestID);
 }		
-function start(){
+function start(runInitScene){
+    if(undefined==runInitScene){
+	   runInitScene=true;
+	}
 	if(run){
 		stop();
 	}
@@ -61,7 +74,13 @@ function start(){
 	}
 	run=true;
 	runStart=performance.now();
-	init();
+	if(undefined==rotationStart || 
+		undefined==pauseStart){
+	   rotationStart=runStart;
+	}else{
+	   rotationStart+=(runStart-pauseStart);
+	}
+	init(runInitScene);
 }
 
 function fixNumber(n,scale){
@@ -115,10 +134,12 @@ function render(timestamp) {
 	}else{
 		renderTime=renderStart;
 	}
-	var rotation=rpm/60*Math.PI*(renderTime-runStart)/1000;
+	var rotation=rpm/60*Math.PI*(renderTime-rotationStart)/1000;
 	requestID=requestAnimationFrame(render);
-	objects.rotation.x = rotation;
-	objects.rotation.y = rotation;	
+	var x=Math.sin(rotation);
+	var y=Math.cos(rotation);
+	var z=distance;
+	camera.position=new THREE.Vector3( x, y, z );
 	renderer.render(scene, camera);
 	renderEnd=performance.now();
 	setTimeout(function(){updateStats();},10);	
@@ -141,10 +162,22 @@ function getRandom(scale){
 function cubes(){
 	for(var i=0;i<objectCount;i++){
 	    var color = new THREE.Color();
-	    var r=1;
-		var g=getRandom(0.2);
-		var b=getRandom(0.1);
-		color.setRGB(r,g,b);
+	    var h=1;
+		var m=getRandom(0.2);
+		var l=getRandom(0.1);
+		switch (i%3){
+			case 0:
+			color.setRGB(h,m,l);
+			break;
+			case 1:
+			color.setRGB(l,h,m);
+			break;
+			case 2:
+			color.setRGB(m,l,h);
+			break;
+			default:
+			color.setRGB(m,m,m);			
+		}		
 		var size=0.3*getRandom(0.7);
 		var geometry = new THREE.CubeGeometry(size,size,size);
 		var material = new THREE.MeshBasicMaterial( 
@@ -156,7 +189,7 @@ function cubes(){
 		material.color=color;
 		var cube = new THREE.Mesh( geometry, material );
 	    cube.position.set(getRandom(),getRandom(),getRandom());
-		objects.add( cube );
+		scene.add( cube );
 	}
 }
 
@@ -165,22 +198,32 @@ function ambientLight(){
 	scene.add( light );
 }
 
-function init(){
+function initScene(){
 	scene = new THREE.Scene();
-	objects = new THREE.Object3D();
-	scene.add(objects);
 	camera = new THREE.PerspectiveCamera
 		( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
 	renderer = new THREE.WebGLRenderer({canvas: canvasId});
 	renderer.setSize( window.innerWidth, window.innerHeight );
 	document.body.appendChild( renderer.domElement );
 	camera.position.z = distance;
+	lookat=new THREE.Vector3( 0.5, 0.5, 0.5 );
+	camera.lookAt(lookat);
 	for(var i=0;i<sceneAdds.length;i++){
 	  var name=sceneAdds[i];
 	  window[name]();
 	}
+}
+
+function initStats(){
 	renderCount=0;
 	renderElapsedSum=0;
+}
+
+function init(runInitScene){
+    if(undefined==scene || runInitScene){
+		initScene();
+	}
+	initStats();
 	render();
 }
 
@@ -264,8 +307,7 @@ theoretical FPS: <span id="theoreticalFps"></span>
   <option selected="true">ambientLight</option>
 </select>
 <br/>
-<button id="stop" onclick="stop()">Stop</button>	
-<button id="start" onclick="start()">Start</button>
+<button id="power" onclick="stopOrStart()">Stop/start</button>	
 </div>	
 <canvas id="canvasId"></canvas>	
 	</body>
