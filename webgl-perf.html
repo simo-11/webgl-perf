@@ -4,11 +4,11 @@
 		<style>
 canvas { 
 float: right;
-width: 80%; 
-height: 80% 
+width: 70%; 
+height: 70% 
 }
 div#text {
-width:20%;
+width:30%;
 float: left;
 }
 </style>
@@ -17,6 +17,7 @@ float: left;
 <link rel="stylesheet" 
 href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.10.3/themes/smoothness/jquery-ui.css" />	
 <script src="http://rawgithub.com/mrdoob/three.js/master/build/three.js"></script>
+<script src="http://threejs.org/examples/js/controls/TrackballControls.js"></script>
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
 <script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.10.3/jquery-ui.min.js"></script>
 		<script>
@@ -33,7 +34,7 @@ performance.now = (function() {
 var run=false;		
 var scene;
 var lookat;
-var camera;
+var camera,controls;
 var renderer;
 var distance=0.2;
 var rpm=20;
@@ -121,6 +122,10 @@ function updateStats(){
 		s=showDynamicNumber(theoreticalFps);
 	}
 	$( "#theoreticalFps" ).text(s);
+	$("#camera").text("("+
+	camera.position.x.toFixed(2)+", "+
+	camera.position.y.toFixed(2)+", "+
+	camera.position.z.toFixed(2)+")");
 }
 
 function render(timestamp) {
@@ -134,12 +139,22 @@ function render(timestamp) {
 	}else{
 		renderTime=renderStart;
 	}
-	var rotation=rpm/60*Math.PI*(renderTime-rotationStart)/1000;
+	var previousTime=rotationStart;
+	if(renderTime>previousTime){
+	   previousTime=renderTime;
+	}
+	var rotation=rpm/60*Math.PI*(renderTime-previousTime)/1000;
 	requestID=requestAnimationFrame(render);
-	var x=0.5+Math.sin(rotation)*distance;
-	var y=0.5+Math.cos(rotation)*distance;
-	var z=x;
+	var sf=Math.sin(rotation)*rotation;
+	var cf=Math.cos(rotation)*rotation;
+	var cx=camera.position.x;
+	var cy=camera.position.y;
+	var cz=camera.position.z;	
+	var x=cx+sf;
+	var y=cy+cf;
+	var z=cz+sf;
 	camera.position=new THREE.Vector3( x, y, z );
+	controls.update();
 	renderer.render(scene, camera);
 	renderEnd=performance.now();
 	setTimeout(function(){updateStats();},10);	
@@ -206,6 +221,15 @@ function initScene(){
 	renderer.setSize( window.innerWidth, window.innerHeight );
 	document.body.appendChild( renderer.domElement );
 	camera.position.z = distance;
+	controls = new THREE.TrackballControls( camera );
+	controls.rotateSpeed = 1.0;
+	controls.zoomSpeed = 1.2;
+	controls.panSpeed = 0.8;
+	controls.noZoom = false;
+	controls.noPan = false;
+	controls.noRotate= false;
+	controls.staticMoving = true;
+	controls.dynamicDampingFactor = 0.3;	
 	lookat=new THREE.Vector3( 0.5, 0.5, 0.5 );
 	camera.lookAt(lookat);
 	for(var i=0;i<sceneAdds.length;i++){
@@ -282,10 +306,15 @@ for monitoring GPU load during execution
 </ul>
 Note that javascript is single threaded and maximum load for single javascipt programs
 is 1/number of cpus.
-
+<br/>
+Press and hold left mouse button to rotate <br/>
+Press and hold right mouse button to pan(move) <br/>
+Use mouse scroll to zoom <br/>
 <label for="distance">Distance:</label>
 <input type="text" id="distance" style="border: 0;"/>
 <div id="distance-slider" style="width: 80%;"></div>
+<br/>
+Camera @: <span id="camera"></span>
 <br/>
 <label for="rpm">Revolutions Per Minute:</label>
 <input type="text" id="rpm" style="border: 0;"/>
