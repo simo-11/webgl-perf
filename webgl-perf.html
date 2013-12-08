@@ -55,7 +55,9 @@ function stopOrStart(){
 	if(run){
 	    pauseStart=performance.now();
 		stop();
+		$("#power").text("Start");
 	}else{
+		$("#power").text("Stop");
 	    start(false);
 	}
 }		
@@ -134,6 +136,7 @@ function render(timestamp) {
 	}
 	renderStart=performance.now();
 	var renderTime;
+	/*
 	if(timestamp){
 		renderTime=timestamp;
 	}else{
@@ -144,7 +147,9 @@ function render(timestamp) {
 	   previousTime=renderTime;
 	}
 	var rotation=rpm/60*Math.PI*(renderTime-previousTime)/1000;
+	*/
 	requestID=requestAnimationFrame(render);
+	/*
 	var sf=Math.sin(rotation)*rotation;
 	var cf=Math.cos(rotation)*rotation;
 	var cx=camera.position.x;
@@ -154,6 +159,7 @@ function render(timestamp) {
 	var y=cy+cf;
 	var z=cz+sf;
 	camera.position=new THREE.Vector3( x, y, z );
+	*/
 	controls.update();
 	renderer.render(scene, camera);
 	renderEnd=performance.now();
@@ -336,7 +342,7 @@ theoretical FPS: <span id="theoreticalFps"></span>
   <option selected="true">ambientLight</option>
 </select>
 <br/>
-<button id="power" onclick="stopOrStart()">Stop/start</button>	
+<button id="power" onclick="stopOrStart()">Start</button>	
 </div>	
 <canvas id="canvasId"></canvas>	
 	</body>
