@@ -1,14 +1,12 @@
-webgl-perf
-==========
+# webgl-perf GPU/webgl performance tester
 
-GPU/webgl performance tester
+## Usage or development
 
-TODO:
-- Fix issues
-- distance and rpm controls do not co-operate properly with mouse controls
-- FPS counter reports wrong values
+Suggested method is to clone repository and add directory in Chrome's Sources/Filesystem tab.
 
-References:
+For view only download webgl-perf.html and open it with browser.
+
+## References
 - http://threejs.org/
 - http://soledadpenades.com/articles/three-js-tutorials/object-picking/
 
