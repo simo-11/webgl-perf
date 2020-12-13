@@ -4,6 +4,7 @@ webgl-perf
 GPU/webgl performance tester
 
 TODO:
+- Fix issues
 - distance and rpm controls do not co-operate properly with mouse controls
 - FPS counter reports wrong values
 
