@@ -1,33 +1,41 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
 	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">		
 		<title>webgl-perf</title>
 		<style>
-canvas#canvasId {
-	float: right;max-width: 70%}
+canvas#webgl {
+	float: right;
+	max-width: 60%;
+	max-height:400px;
+}
 div#text {
-width:30%;
+width:40%;
 float: left;
 }
 </style>
 	</head>
 	<body>  
 <link rel="stylesheet" 
-href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.13.2/themes/smoothness/jquery-ui.css" />	
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js"></script>
-<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.13.2/jquery-ui.min.js"></script>
-<script async src="https://unpkg.com/es-module-shims@1.3.6/dist/es-module-shims.js"></script>
+href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.14.1/themes/smoothness/jquery-ui.css" />	
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.14.1/jquery-ui.min.js"></script>
+<script async src="https://unpkg.com/es-module-shims@2.6.1/dist/es-module-shims.js"></script>
 
 <script type="importmap">
   {
     "imports": {
-      "three": "https://unpkg.com/three@0.148.0/build/three.module.js",
-      "three/addons/": "https://unpkg.com/three@0.148.0/examples/jsm/"
+      "three": "https://unpkg.com/three@0.178.0/build/three.module.js",
+      "webgpu": "https://unpkg.com/three@0.178.0/build/three.webgpu.js",
+      "three/addons/": "https://unpkg.com/three@0.178.0/examples/jsm/"
     }
   }
 </script>
 
 <script type="module">
 import * as THREE from 'three';
+import * as WEBGPU from 'webgpu';
 import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
 window.performance = window.performance || {};
 performance.now = (function() {
@@ -206,14 +214,15 @@ function ambientLight(){
 function initScene(){
 	camera = new THREE.PerspectiveCamera
 		( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
-	renderer = new THREE.WebGLRenderer({canvas: canvasId});
+	//renderer = new THREE.WebGLRenderer({canvas: webgl});
+	renderer = new WEBGPU.WebGPURenderer({canvas: webgl});
 	renderer.setSize( window.innerWidth, window.innerHeight );
 	document.body.appendChild( renderer.domElement );
 	camera.position.x=0.25;
 	camera.position.y=0.64;
 	camera.position.z=1.68;
     controls = new TrackballControls( camera, renderer.domElement);
-	controls.rotateSpeed = 1.0;
+	controls.rotateSpeed = 10.0;
 	controls.zoomSpeed = 1.2;
 	controls.panSpeed = 0.8;
 	controls.noZoom = false;
@@ -285,20 +294,22 @@ actual FPS: <span id="fps"></span>
 <br/>
 theoretical FPS: <span id="theoreticalFps"></span>
 <h3>Objects</h3>
-<select class="sceneSelector" multiple="multiple">
+<select class="sceneSelector" title="Objects" multiple="multiple">
   <option selected="true">cubes</option>
 </select>
 <br/>
 <label for="count">Count:</label>
-<input type="text" id="objectCount" style="border: 0;"/>
+<input id="count" type="text" title="Object count" id="objectCount" style="border: 0;"/>
 <div id="objectCount-slider" style="width: 80%;"></div>
 <h3>Lights</h3>
-<select class="sceneSelector" multiple="multiple">
+<select class="sceneSelector" title="Lights" multiple="multiple">
   <option selected="true">ambientLight</option>
 </select>
 <br/>
 <button id="power" onclick="stopOrStart()">Start</button>	
 </div>	
-<canvas id="canvasId"></canvas>	
+<canvas id="webgl"></canvas>	
+<canvas id="hp"></canvas>	
+<canvas id="lp"></canvas>	
 	</body>
 </html>
