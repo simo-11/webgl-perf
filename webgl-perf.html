@@ -82,6 +82,8 @@ function stop(){
 	run=false;
 	window.cancelAnimationFrame(requestID);
 	$("#power").text("Start");
+	$("#fps").text("");
+	$("#theoreticalFps").text("");
 }		
 function start(runInitScene){
     if(undefined==runInitScene){
@@ -131,6 +133,9 @@ function showDynamicNumber(n){
 }
 
 function updateStats(){
+	if(!run){
+		return;
+	}
 	var renderElapsed=renderEnd-renderStart;
 	var s="";
 	renderElapsedSum+=renderElapsed;
@@ -214,17 +219,30 @@ function ambientLight(){
 	scene.add( light );
 }
 
+var threeWebGPURenderer;
+var threeWebGLRenderer;
 function initScene(){
 	camera = new THREE.PerspectiveCamera
 		( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
-	threeRenderer=$('select[name="threeRenderer"]').val();
 	switch(threeRenderer){
 		case WebGPU:
-			renderer = new WEBGPU.WebGPURenderer({canvas: three});
+			if(!threeWebGPURenderer){
+				let canvas = document.querySelector("#three");
+				//let adapter = await navigator.gpu.requestAdapter();
+				//let device = await adapter.requestDevice();
+				let context = canvas.getContext("webgpu");
+				let format = navigator.gpu.getPreferredCanvasFormat();
+				threeWebGPURenderer = new WEBGPU.WebGPURenderer({canvas: three});
+				threeWebGPURenderer.init();
+			}
+			renderer=threeWebGPURenderer;
 			break;
 		case WebGL:	
 		default:
-			renderer = new THREE.WebGLRenderer({canvas: three});
+			if(!threeWebGLRenderer||true){
+				threeWebGLRenderer = new THREE.WebGLRenderer({canvas: three});
+			}
+			renderer=threeWebGLRenderer;
 			break;
 	}
 	renderer.setSize( window.innerWidth, window.innerHeight );
@@ -255,9 +273,15 @@ function initStats(){
 	renderElapsedSum=0;
 }
 
+var activeThreeRenderer;	
 function init(runInitScene){
+	threeRenderer=$('select[name="threeRenderer"]').val();
+	if(activeThreeRenderer!==threeRenderer){
+		runInitScene=true;
+	}
     if(undefined==scene || runInitScene){
 		initScene();
+		activeThreeRenderer=threeRenderer;
 	}
 	initStats();
 	render();
@@ -282,6 +306,7 @@ $(function() {
 			start();
 		}
 	});
+	$("#power").on("click",stopOrStart);
 	start();
 });
 </script>
@@ -316,15 +341,15 @@ theoretical FPS: <span id="theoreticalFps"></span>
   <option selected="true">cubes</option>
 </select>
 <br/>
-<label for="count">Count:</label>
-<input id="count" type="text" title="Object count" id="objectCount" style="border: 0;"/>
-<div id="objectCount-slider" style="width: 80%;"></div>
+<label for="objectCount">Count:</label>
+<input type="text" title="Object count" id="objectCount" style="border: 0;"/>
+<div id="objectCount-slider" style="width: 30%;"></div>
 <h3>Lights</h3>
 <select class="sceneSelector" title="Lights" multiple="multiple">
   <option selected="true">ambientLight</option>
 </select>
 <br/>
-<button id="power" onclick="stopOrStart()">Start</button>	
+<button id="power">Start</button>	
 </div>	
 <canvas id="three"></canvas>	
 <canvas id="hp"></canvas>	
