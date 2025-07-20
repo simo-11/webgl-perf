@@ -16,6 +16,9 @@ Add support for WebGPU and compare its performance to webgl.
 Device is selected using  powerPreference: "high-performance" or "low-power" in navigator.gpu.requestAdapter https://webgpu.rocks/reference/enum/gpupowerpreference/
 Compare to desktop implementation (wgpu)
 
+## Configuration for usage with threejs
+ - context is needed in parameter unless renderer.domElement.getContext( 'webgpu' ) is set
+
 ## References
 - https://google.github.io/tour-of-wgsl/
 - https://github.com/gfx-rs/wgpu
