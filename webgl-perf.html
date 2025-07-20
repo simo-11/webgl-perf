@@ -5,7 +5,7 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">		
 		<title>webgl-perf</title>
 		<style>
-canvas#webgl {
+canvas#three {
 	float: right;
 	max-width: 60%;
 	max-height:400px;
@@ -51,7 +51,10 @@ var run=false;
 var scene;
 var lookat;
 var camera;
-var renderer;
+const WebGPU='WebGPU';
+const WebGL='WebGL';
+var threeRenderer=WebGL; // WebGPU or WebGL
+var renderer; // actual renderer for three
 var distance=0.2;
 var rpm=20;
 var objectCount=100;
@@ -214,8 +217,16 @@ function ambientLight(){
 function initScene(){
 	camera = new THREE.PerspectiveCamera
 		( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
-	//renderer = new THREE.WebGLRenderer({canvas: webgl});
-	renderer = new WEBGPU.WebGPURenderer({canvas: webgl});
+	threeRenderer=$('select[name="threeRenderer"]').val();
+	switch(threeRenderer){
+		case WebGPU:
+			renderer = new WEBGPU.WebGPURenderer({canvas: three});
+			break;
+		case WebGL:	
+		default:
+			renderer = new THREE.WebGLRenderer({canvas: three});
+			break;
+	}
 	renderer.setSize( window.innerWidth, window.innerHeight );
 	document.body.appendChild( renderer.domElement );
 	camera.position.x=0.25;
@@ -265,13 +276,15 @@ $(function() {
       }
     });
     $( "#objectCount" ).val( $( "#objectCount-slider" ).slider( "value" ) );
+	$("#threeRenderer").on("change",function(){
+		if(run){
+			stop();
+			start();
+		}
+	});
+	start();
 });
-
-$( document ).ready(function() {
-	$("select.sceneSelector").change(sceneSelector);
-});
-window.stopOrStart=stopOrStart;		
-		</script>
+</script>
 <div id="text">		
 <p>This tool is designed to be used with other tools</p> 
 <ul>
@@ -282,8 +295,7 @@ for monitoring GPU load during execution
 </li>
 <li>Your ears to hear if fans make too much noise</li>
 </ul>
-Note that javascript is single threaded and maximum load for single javascipt programs
-is 1/number of cpus.
+Note that javascript is single threaded and maximum cpu load due to this program is 1/number of cpus.
 <br/>
 Press and hold left mouse button to rotate <br/>
 Press and hold right mouse button to pan(move) <br/>
@@ -293,6 +305,12 @@ Camera @: <span id="camera"></span>
 actual FPS: <span id="fps"></span>
 <br/>
 theoretical FPS: <span id="theoreticalFps"></span>
+<h3>threeRenderer</h3>
+<select id="threeRenderer" title="threeRenderer" name="threeRenderer">
+  <option selected="true">WebGL</option>
+  <option>WebGPU</option>
+</select>
+<br/>
 <h3>Objects</h3>
 <select class="sceneSelector" title="Objects" multiple="multiple">
   <option selected="true">cubes</option>
@@ -308,7 +326,7 @@ theoretical FPS: <span id="theoreticalFps"></span>
 <br/>
 <button id="power" onclick="stopOrStart()">Start</button>	
 </div>	
-<canvas id="webgl"></canvas>	
+<canvas id="three"></canvas>	
 <canvas id="hp"></canvas>	
 <canvas id="lp"></canvas>	
 	</body>
