@@ -5,7 +5,7 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">		
 		<title>webgl-perf</title>
 		<style>
-canvas#three {
+canvas{
 	float: right;
 	max-width: 60%;
 	max-height:400px;
@@ -219,32 +219,40 @@ function ambientLight(){
 	scene.add( light );
 }
 
-var threeWebGPURenderer;
+var threeLpWebGPURenderer,threeHpWebGPURenderer;
 var threeWebGLRenderer;
 function initScene(){
-	camera = new THREE.PerspectiveCamera
-		( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
+	const powerPreference=$("#powerPreference").val();
 	switch(threeRenderer){
 		case WebGPU:
-			if(!threeWebGPURenderer){
-				let canvas = document.querySelector("#three");
-				//let adapter = await navigator.gpu.requestAdapter();
-				//let device = await adapter.requestDevice();
-				let context = canvas.getContext("webgpu");
-				let format = navigator.gpu.getPreferredCanvasFormat();
-				threeWebGPURenderer = new WEBGPU.WebGPURenderer({canvas: three});
-				threeWebGPURenderer.init();
+			switch(powerPreference){
+				case "low-power":
+					if(!threeLpWebGPURenderer){
+						threeLpWebGPURenderer = new WEBGPU.WebGPURenderer(
+							{canvas: threeLp,powerPreference: powerPreference});
+					}
+					renderer=threeLpWebGPURenderer;
+					break;
+				case "high-performance":
+					if(!threeHpWebGPURenderer){
+						threeHpWebGPURenderer = new WEBGPU.WebGPURenderer(
+							{canvas: threeHp,powerPreference: powerPreference});
+					}
+					renderer=threeHpWebGPURenderer;
+					break;
 			}
-			renderer=threeWebGPURenderer;
 			break;
 		case WebGL:	
 		default:
 			if(!threeWebGLRenderer||true){
-				threeWebGLRenderer = new THREE.WebGLRenderer({canvas: three});
+				threeWebGLRenderer = new THREE.WebGLRenderer(
+					{canvas: three,powerPreference: powerPreference});
 			}
 			renderer=threeWebGLRenderer;
 			break;
 	}
+	camera = new THREE.PerspectiveCamera
+		( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
 	renderer.setSize( window.innerWidth, window.innerHeight );
 	document.body.appendChild( renderer.domElement );
 	camera.position.x=0.25;
@@ -287,6 +295,17 @@ function init(runInitScene){
 	render();
 }
 
+var adapter;
+var device;	
+async function initGpu(){
+	if(!adapter){
+		adapter = await navigator.gpu.requestAdapter();//{powerPreference:"high-performance"});
+	}
+	if(!device){
+		device = await adapter.requestDevice();
+	}
+}
+	
 $(function() {
     $( "#objectCount-slider" ).slider({
       min: 1,
@@ -300,15 +319,22 @@ $(function() {
       }
     });
     $( "#objectCount" ).val( $( "#objectCount-slider" ).slider( "value" ) );
-	$("#threeRenderer").on("change",function(){
+	$("#threeRenderer,#powerPreference").on("change",function(){
 		if(run){
 			stop();
 			start();
 		}
 	});
+	initGpu().then(enableWebGpu).catch(webGpuFailed);
 	$("#power").on("click",stopOrStart);
 	start();
 });
+function enableWebGpu(){
+	$("#webGPUOption").prop("disabled",false);
+}
+function webGpuFailed(err){
+	console.error(err);
+}	
 </script>
 <div id="text">		
 <p>This tool is designed to be used with other tools</p> 
@@ -330,10 +356,16 @@ Camera @: <span id="camera"></span>
 actual FPS: <span id="fps"></span>
 <br/>
 theoretical FPS: <span id="theoreticalFps"></span>
+<h3>powerPreference</h3>
+As of 2025-07 this is <a href="https://crbug.com/369219127">not effective in windows environment.</a>	
+<select id="powerPreference" title="powerPreference">
+  <option selected="true">low-power</option>
+  <option>high-performance</option>	
+</select>
 <h3>threeRenderer</h3>
 <select id="threeRenderer" title="threeRenderer" name="threeRenderer">
   <option selected="true">WebGL</option>
-  <option>WebGPU</option>
+  <option id="webGPUOption" disabled>WebGPU</option>	
 </select>
 <br/>
 <h3>Objects</h3>
@@ -352,6 +384,8 @@ theoretical FPS: <span id="theoreticalFps"></span>
 <button id="power">Start</button>	
 </div>	
 <canvas id="three"></canvas>	
+<canvas id="threeLp"></canvas>	
+<canvas id="threeHp"></canvas>	
 <canvas id="hp"></canvas>	
 <canvas id="lp"></canvas>	
 	</body>
