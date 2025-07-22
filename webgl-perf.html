@@ -53,8 +53,7 @@ var lookat;
 var camera;
 const WebGPU='WebGPU';
 const WebGL='WebGL';
-var threeRenderer=WebGL; // WebGPU or WebGL
-var renderer; // actual renderer for three
+var renderers=[]; // actual renderers
 var distance=0.2;
 var rpm=20;
 var objectCount=100;
@@ -154,6 +153,7 @@ function updateStats(){
 	camera.position.z.toFixed(2)+")");
 }
 
+var rendererInitRequested;	
 function render(timestamp) {
 	if(!run){
 		return;
@@ -161,10 +161,26 @@ function render(timestamp) {
 	renderStart=performance.now();
 	requestID=requestAnimationFrame(render);
 	controls.update();
-	renderer.render(scene, camera);
+	renderers.forEach(function(renderer,index,array){
+		if(typeof renderer._initialized !== "boolean"){
+			renderer.render(scene, camera);
+		}else{
+			if(renderer._initialized){
+				renderer.render(scene, camera);				
+			}else{
+				if(!rendererInitRequested){
+					renderer.init().then(rendererInitialized);
+					rendererInitRequested=true
+				}
+			}
+		}
+	});
 	renderEnd=performance.now();
 	setTimeout(function(){updateStats();},10);	
 }
+
+function rendererInitialized(valueOrReason){
+}	
 
 function sceneSelector(){
 	sceneAdds=$("select.sceneSelector").val();
@@ -223,57 +239,69 @@ var threeLpWebGPURenderer,threeHpWebGPURenderer;
 var threeWebGLRenderer;
 function initScene(){
 	const powerPreference=$("#powerPreference").val();
-	switch(threeRenderer){
-		case WebGPU:
-			switch(powerPreference){
-				case "low-power":
-					if(!threeLpWebGPURenderer){
-						threeLpWebGPURenderer = new WEBGPU.WebGPURenderer(
-							{canvas: threeLp,powerPreference: powerPreference});
-					}
-					renderer=threeLpWebGPURenderer;
-					break;
-				case "high-performance":
-					if(!threeHpWebGPURenderer){
-						threeHpWebGPURenderer = new WEBGPU.WebGPURenderer(
-							{canvas: threeHp,powerPreference: powerPreference});
-					}
-					renderer=threeHpWebGPURenderer;
-					break;
-			}
-			break;
-		case WebGL:	
-		default:
-			if(!threeWebGLRenderer||true){
-				threeWebGLRenderer = new THREE.WebGLRenderer(
-					{canvas: three,powerPreference: powerPreference});
-			}
-			renderer=threeWebGLRenderer;
-			break;
-	}
-	camera = new THREE.PerspectiveCamera
-		( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
-	renderer.setSize( window.innerWidth, window.innerHeight );
-	document.body.appendChild( renderer.domElement );
-	camera.position.x=0.25;
-	camera.position.y=0.64;
-	camera.position.z=1.68;
-    controls = new TrackballControls( camera, renderer.domElement);
-	controls.rotateSpeed = 10.0;
-	controls.zoomSpeed = 1.2;
-	controls.panSpeed = 0.8;
-	controls.noZoom = false;
-	controls.noPan = false;
-	controls.noRotate= false;
-	controls.staticMoving = true;
-	controls.dynamicDampingFactor = 0.3;	
-	lookat=new THREE.Vector3( 0.5, 0.5, 0.5 );
-	camera.lookAt(lookat);
-	scene = new THREE.Scene();
-	for(var i=0;i<sceneAdds.length;i++){
-	  var name=sceneAdds[i];
-	  eval(name).call();
-	}
+	renderers.length=0;
+	$('canvas').hide();
+	var rendererNames=$('#threeRenderer').val();
+	rendererNames.forEach(function(renderer,index,array){
+		switch(renderer){
+			case WebGPU:
+				switch(powerPreference){
+					case "low-power":
+						if(!threeLpWebGPURenderer){
+							threeLpWebGPURenderer = new WEBGPU.WebGPURenderer(
+								{canvas: threeLp});//,powerPreference: powerPreference});
+						}
+						$('#threeLp').show();
+						renderers.push(threeLpWebGPURenderer);
+						break;
+					case "high-performance":
+						if(!threeHpWebGPURenderer){
+							threeHpWebGPURenderer = new WEBGPU.WebGPURenderer(
+								{canvas: threeHp,powerPreference: powerPreference});
+						}
+						$('#threeHp').show();
+						renderers.push(threeHpWebGPURenderer);
+						break;
+				}
+				break;
+			case WebGL:	
+			default:
+				if(!threeWebGLRenderer||true){
+					threeWebGLRenderer = new THREE.WebGLRenderer(
+						{canvas: three,powerPreference: powerPreference});
+				}
+				$('#three').show();
+				renderers.push(threeWebGLRenderer);
+				break;
+		}
+	});
+	renderers.forEach(function(renderer,index,array){	
+		renderer.setSize( window.innerWidth, window.innerHeight );
+		document.body.appendChild( renderer.domElement );
+		scene = new THREE.Scene();
+		for(var i=0;i<sceneAdds.length;i++){
+		  var name=sceneAdds[i];
+		  eval(name).call();
+		}
+		if(index===0){
+			camera = new THREE.PerspectiveCamera
+				( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
+			camera.position.x=0.25;
+			camera.position.y=0.64;
+			camera.position.z=1.68;
+			lookat=new THREE.Vector3( 0.5, 0.5, 0.5 );
+			camera.lookAt(lookat);
+		    controls = new TrackballControls( camera, renderer.domElement);
+			controls.rotateSpeed = 10.0;
+			controls.zoomSpeed = 1.2;
+			controls.panSpeed = 0.8;
+			controls.noZoom = false;
+			controls.noPan = false;
+			controls.noRotate= false;
+			controls.staticMoving = true;
+			controls.dynamicDampingFactor = 0.3;
+		}
+	});
 }
 
 function initStats(){
@@ -281,15 +309,9 @@ function initStats(){
 	renderElapsedSum=0;
 }
 
-var activeThreeRenderer;	
 function init(runInitScene){
-	threeRenderer=$('select[name="threeRenderer"]').val();
-	if(activeThreeRenderer!==threeRenderer){
-		runInitScene=true;
-	}
     if(undefined==scene || runInitScene){
 		initScene();
-		activeThreeRenderer=threeRenderer;
 	}
 	initStats();
 	render();
@@ -348,6 +370,7 @@ for monitoring GPU load during execution
 </ul>
 Note that javascript is single threaded and maximum cpu load due to this program is 1/number of cpus.
 <br/>
+Controls are active in top window <br/>	
 Press and hold left mouse button to rotate <br/>
 Press and hold right mouse button to pan(move) <br/>
 Use mouse scroll to zoom <br/>
@@ -357,13 +380,14 @@ actual FPS: <span id="fps"></span>
 <br/>
 theoretical FPS: <span id="theoreticalFps"></span>
 <h3>powerPreference</h3>
-As of 2025-07 this is <a href="https://crbug.com/369219127">not effective in windows environment.</a>	
+As of 2025-07 <a href="https://crbug.com/369219127">powerPreference is not effective in windows environment.</a>
+<br/>
 <select id="powerPreference" title="powerPreference">
   <option selected="true">low-power</option>
   <option>high-performance</option>	
 </select>
 <h3>threeRenderer</h3>
-<select id="threeRenderer" title="threeRenderer" name="threeRenderer">
+<select id="threeRenderer" title="threeRenderer" name="threeRenderer" multiple="multiple">
   <option selected="true">WebGL</option>
   <option id="webGPUOption" disabled>WebGPU</option>	
 </select>
@@ -382,11 +406,11 @@ As of 2025-07 this is <a href="https://crbug.com/369219127">not effective in win
 </select>
 <br/>
 <button id="power">Start</button>	
-</div>	
-<canvas id="three"></canvas>	
-<canvas id="threeLp"></canvas>	
-<canvas id="threeHp"></canvas>	
-<canvas id="hp"></canvas>	
-<canvas id="lp"></canvas>	
+</div>
+<canvas title="Three using WebGL" id="three"></canvas>	
+<canvas title="Three using WebGPU" id="threeLp"></canvas>	
+<canvas title="Three using WebGPU" id="threeHp"></canvas>	
+<canvas title="Plain WebGPU" id="hp"></canvas>	
+<canvas title="Plain WebGPU" id="lp"></canvas>	
 	</body>
 </html>
