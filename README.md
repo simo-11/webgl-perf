@@ -30,5 +30,6 @@ Compare to desktop implementation (wgpu)
 ## References
 - https://google.github.io/tour-of-wgsl/
 - https://github.com/gfx-rs/wgpu
+- https://github.com/google/dawn - Dawn is the native implementation of the WebGPU graphics API
 
 
