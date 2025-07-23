@@ -53,6 +53,7 @@ var lookat;
 var camera;
 const WebGPU='WebGPU';
 const WebGL='WebGL';
+const gpu='gpu';
 var renderers=[]; // actual renderers
 var distance=0.2;
 var rpm=20;
@@ -236,12 +237,12 @@ function ambientLight(){
 }
 
 var threeLpWebGPURenderer,threeHpWebGPURenderer;
-var threeWebGLRenderer;
+var threeWebGLRenderer,gpuRenderer;
 function initScene(){
 	const powerPreference=$("#powerPreference").val();
 	renderers.length=0;
 	$('canvas').hide();
-	var rendererNames=$('#threeRenderer').val();
+	var rendererNames=$('#renderer').val();
 	rendererNames.forEach(function(renderer,index,array){
 		switch(renderer){
 			case WebGPU:
@@ -263,6 +264,13 @@ function initScene(){
 						renderers.push(threeHpWebGPURenderer);
 						break;
 				}
+				break;
+			case gpu:
+				if(!gpuRenderer){
+					gpuRenderer=new GpuRenderer();
+				}
+				$('#gpu').show();
+				renderers.push(gpuRenderer);
 				break;
 			case WebGL:	
 			default:
@@ -304,6 +312,62 @@ function initScene(){
 	});
 }
 
+class GpuRenderer {
+	constructor(){
+		const canvas=$("#gpu")[0];
+		this.domElement=canvas;
+		const context = canvas.getContext("webgpu");
+		const format = navigator.gpu.getPreferredCanvasFormat();
+		context.configure({ device, format });
+		this.shaderModule = device.createShaderModule({
+	    code: `
+	      @vertex
+	      fn vs(@builtin(vertex_index) i : u32) -> @builtin(position) vec4f {
+	        var pos = array<vec2f, 3>(
+	          vec2f(0.0, 0.5),
+	          vec2f(-0.5, -0.5),
+	          vec2f(0.5, -0.5)
+	        );
+	        return vec4f(pos[i], 0.0, 1.0);
+	      }
+	      @fragment
+	      fn fs() -> @location(0) vec4f {
+	        return vec4f(1.0, 0.0, 0.0, 1.0); // Red
+	      }
+	    `
+	  });
+	  this.pipeline = device.createRenderPipeline({
+	    layout: "auto",
+	    vertex: { module: this.shaderModule, entryPoint: "vs" },
+	    fragment: {
+	      module: this.shaderModule,
+	      entryPoint: "fs",
+	      targets: [{ format }]
+	    },
+	    primitive: { topology: "triangle-list" }
+	  });
+	  this.textureView = context.getCurrentTexture().createView();
+	}
+	setSize(width,height){
+		
+	}
+	render(scene, camera){
+	  const commandEncoder = device.createCommandEncoder();
+	  const renderPass = commandEncoder.beginRenderPass({
+	    colorAttachments: [{
+	      view: this.textureView,
+	      loadOp: "clear",
+	      storeOp: "store",
+	      clearValue: { r: 0.9, g: 0.9, b: 0.9, a: 1.0 }
+	    }]
+	  });
+	  renderPass.setPipeline(this.pipeline);
+	  renderPass.draw(3);
+	  renderPass.end();
+	  device.queue.submit([commandEncoder.finish()]);		
+	}
+}	
+	
 function initStats(){
 	renderCount=0;
 	renderElapsedSum=0;
@@ -341,7 +405,7 @@ $(function() {
       }
     });
     $( "#objectCount" ).val( $( "#objectCount-slider" ).slider( "value" ) );
-	$("#threeRenderer,#powerPreference").on("change",function(){
+	$("#renderer,#powerPreference").on("change",function(){
 		if(run){
 			stop();
 			start();
@@ -352,7 +416,7 @@ $(function() {
 	start();
 });
 function enableWebGpu(){
-	$("#webGPUOption").prop("disabled",false);
+	$("option.WebGPU").prop("disabled",false);
 }
 function webGpuFailed(err){
 	console.error(err);
@@ -386,10 +450,11 @@ As of 2025-07 <a href="https://crbug.com/369219127">powerPreference is not effec
   <option selected="true">low-power</option>
   <option>high-performance</option>	
 </select>
-<h3>threeRenderer</h3>
-<select id="threeRenderer" title="threeRenderer" name="threeRenderer" multiple="multiple">
-  <option selected="true">WebGL</option>
-  <option id="webGPUOption" disabled>WebGPU</option>	
+<h3>renderer</h3>
+<select id="renderer" title="renderer" multiple="multiple">
+  <option selected="true" value="WebGL">Three using WebGL</option>
+  <option class="WebGPU" disabled value="WebGPU">Three using WebGPU</option>	
+  <option class="WebGPU" disabled value="gpu">Plain WebGPU</option>	
 </select>
 <br/>
 <h3>Objects</h3>
@@ -410,7 +475,6 @@ As of 2025-07 <a href="https://crbug.com/369219127">powerPreference is not effec
 <canvas title="Three using WebGL" id="three"></canvas>	
 <canvas title="Three using WebGPU" id="threeLp"></canvas>	
 <canvas title="Three using WebGPU" id="threeHp"></canvas>	
-<canvas title="Plain WebGPU" id="hp"></canvas>	
-<canvas title="Plain WebGPU" id="lp"></canvas>	
+<canvas title="Plain WebGPU" id="gpu"></canvas>	
 	</body>
 </html>
