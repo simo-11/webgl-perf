@@ -316,9 +316,9 @@ class GpuRenderer {
 	constructor(){
 		const canvas=$("#gpu")[0];
 		this.domElement=canvas;
-		const context = canvas.getContext("webgpu");
+		this.context = canvas.getContext("webgpu");
 		const format = navigator.gpu.getPreferredCanvasFormat();
-		context.configure({ device, format });
+		this.context.configure({ device, format });
 		this.shaderModule = device.createShaderModule({
 	    code: `
 	      @vertex
@@ -346,7 +346,6 @@ class GpuRenderer {
 	    },
 	    primitive: { topology: "triangle-list" }
 	  });
-	  this.textureView = context.getCurrentTexture().createView();
 	}
 	setSize(width,height){
 		
@@ -355,7 +354,7 @@ class GpuRenderer {
 	  const commandEncoder = device.createCommandEncoder();
 	  const renderPass = commandEncoder.beginRenderPass({
 	    colorAttachments: [{
-	      view: this.textureView,
+	      view: this.context.getCurrentTexture().createView(),
 	      loadOp: "clear",
 	      storeOp: "store",
 	      clearValue: { r: 0.9, g: 0.9, b: 0.9, a: 1.0 }
