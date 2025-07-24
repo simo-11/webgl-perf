@@ -28,8 +28,9 @@ Compare to desktop implementation (wgpu)
  - context is needed in parameter unless renderer.domElement.getContext( 'webgpu' ) is set
 
 ## References
-- https://google.github.io/tour-of-wgsl/
-- https://github.com/gfx-rs/wgpu
+- https://gpuweb.github.io/gpuweb/ - WebGPU API
+- https://google.github.io/tour-of-wgsl/ - tour of [WGSL - WebGPU Shading Language](https://www.w3.org/TR/WGSL/)
+- https://github.com/gfx-rs/wgpu - Rust implementation of WebGPU, See https://sotrh.github.io/learn-wgpu/
 - https://github.com/google/dawn - Dawn is the native implementation of the WebGPU graphics API
 
 
