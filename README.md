@@ -24,9 +24,6 @@ High-performance adapter can be selected using command line options or using Dis
 
 Compare to desktop implementation (wgpu)
 
-## Configuration for usage with threejs
- - context is needed in parameter unless renderer.domElement.getContext( 'webgpu' ) is set
-
 ## References
 - https://gpuweb.github.io/gpuweb/ - WebGPU API
 - https://google.github.io/tour-of-wgsl/ - tour of [WGSL - WebGPU Shading Language](https://www.w3.org/TR/WGSL/)
