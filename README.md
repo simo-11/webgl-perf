@@ -29,5 +29,6 @@ Compare to desktop implementation (wgpu)
 - https://google.github.io/tour-of-wgsl/ - tour of [WGSL - WebGPU Shading Language](https://www.w3.org/TR/WGSL/)
 - https://github.com/gfx-rs/wgpu - Rust implementation of WebGPU, See https://sotrh.github.io/learn-wgpu/
 - https://github.com/google/dawn - Dawn is the native implementation of the WebGPU graphics API
+- https://webgpufundamentals.org/webgpu/lessons/webgpu-fundamentals.html 
 
 
