@@ -1,6 +1,6 @@
 # webgl-perf GPU/webgl performance tester
 
-Much better one for WebGPU is at https://webgpufundamentals.org/webgpu/lessons/webgpu-optimization.html
+Much nicer one for WebGPU is at https://webgpufundamentals.org/webgpu/lessons/webgpu-optimization.html. It uses a lot of memory (over 5 GB) on the gpu side.
 
 ## Usage or development
 
