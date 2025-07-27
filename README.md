@@ -1,5 +1,7 @@
 # webgl-perf GPU/webgl performance tester
 
+Much better one for WebGPU is at https://webgpufundamentals.org/webgpu/lessons/webgpu-optimization.html
+
 ## Usage or development
 
 Suggested method is to clone repository and add directory in Chrome's Sources/Filesystem tab.
