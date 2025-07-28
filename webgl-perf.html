@@ -1,479 +1,628 @@
 <!DOCTYPE html>
 <html lang="en">
-	<head>
-		<meta charset="utf-8">
-		<meta name="viewport" content="width=device-width, initial-scale=1.0">		
-		<title>webgl-perf</title>
-		<style>
-canvas{
-	float: right;
-	max-width: 60%;
-	max-height:400px;
-}
-div#text {
-width:40%;
-float: left;
-}
-</style>
-	</head>
-	<body>  
-<link rel="stylesheet" 
-href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.14.1/themes/smoothness/jquery-ui.css" />	
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.14.1/jquery-ui.min.js"></script>
-<script async src="https://unpkg.com/es-module-shims@2.6.1/dist/es-module-shims.js"></script>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>webgl-perf</title>
+        <style>
+            canvas {
+                float: right;
+                max-width: 60%;
+                max-height: 400px;
+            }
 
-<script type="importmap">
-  {
-    "imports": {
-      "three": "https://unpkg.com/three@0.178.0/build/three.module.js",
-      "webgpu": "https://unpkg.com/three@0.178.0/build/three.webgpu.js",
-      "three/addons/": "https://unpkg.com/three@0.178.0/examples/jsm/"
-    }
-  }
-</script>
+            div#text {
+                width: 40%;
+                float: left;
+            }
+        </style>
+    </head>
+    <body>
+        <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.14.1/themes/smoothness/jquery-ui.css"/>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+        <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.14.1/jquery-ui.min.js"></script>
+        <script async src="https://unpkg.com/es-module-shims@2.6.1/dist/es-module-shims.js"></script>
+        <script type="importmap">
+            {
+                "imports": {
+                    "three": "https://unpkg.com/three@0.178.0/build/three.module.js",
+                    "webgpu": "https://unpkg.com/three@0.178.0/build/three.webgpu.js",
+                    "three/addons/": "https://unpkg.com/three@0.178.0/examples/jsm/"
+                }
+            }</script>
+        <script type="module">
+            import*as THREE from 'three';
+            import*as WEBGPU from 'webgpu';
+            import {TrackballControls} from 'three/addons/controls/TrackballControls.js';
+            window.performance = window.performance || {};
+            performance.now = (function() {
+                return performance.now || performance.mozNow || performance.msNow || performance.oNow || performance.webkitNow || Date.now
+            }
+            )();
+            var controls;
+            var run = false;
+            var scene;
+            var lookat;
+            var camera;
+            const WebGPU = 'WebGPU';
+            const WebGL = 'WebGL';
+            const gpu = 'gpu';
+            var renderers = [];
+            // actual renderers
+            var distance = 0.2;
+            var rpm = 20;
+            var objectCount = 100;
+            var renderCount;
+            var renderElapsedSum;
+            var fps;
+            var theoreticalFps;
+            var runStart;
+            var rotationStart;
+            var pauseStart;
+            var renderStart;
+            var renderEnd;
+            var requestID;
+            var sceneAdds;
 
-<script type="module">
-import * as THREE from 'three';
-import * as WEBGPU from 'webgpu';
-import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
-window.performance = window.performance || {};
-performance.now = (function() {
-    return performance.now       ||
-        performance.mozNow    ||
-        performance.msNow     ||
-        performance.oNow      ||
-        performance.webkitNow ||            
-        Date.now 
-})();
-var controls;		
-var run=false;		
-var scene;
-var lookat;
-var camera;
-const WebGPU='WebGPU';
-const WebGL='WebGL';
-const gpu='gpu';
-var renderers=[]; // actual renderers
-var distance=0.2;
-var rpm=20;
-var objectCount=100;
-var renderCount;
-var renderElapsedSum;
-var fps;
-var theoreticalFps;
-var runStart;
-var rotationStart;
-var pauseStart;
-var renderStart;
-var renderEnd;
-var requestID;
-var sceneAdds;
+            function stopOrStart() {
+                if (run) {
+                    pauseStart = performance.now();
+                    stop();
+                } else {
+                    start(false);
+                }
+            }
+            function stop() {
+                run = false;
+                window.cancelAnimationFrame(requestID);
+                $("#power").text("Start");
+                $("#fps").text("");
+                $("#theoreticalFps").text("");
+            }
+            function start(runInitScene) {
+                if (undefined == runInitScene) {
+                    runInitScene = true;
+                }
+                if (run) {
+                    stop();
+                }
+                if (!sceneAdds) {
+                    sceneSelector();
+                }
+                run = true;
+                runStart = performance.now();
+                if (undefined == rotationStart || undefined == pauseStart) {
+                    rotationStart = runStart;
+                } else {
+                    rotationStart += (runStart - pauseStart);
+                }
+                init(runInitScene);
+                $("#power").text("Stop");
+            }
 
-function stopOrStart(){
-	if(run){
-	    pauseStart=performance.now();
-		stop();
-	}else{
-	    start(false);
-	}
-}		
-function stop(){
-	run=false;
-	window.cancelAnimationFrame(requestID);
-	$("#power").text("Start");
-	$("#fps").text("");
-	$("#theoreticalFps").text("");
-}		
-function start(runInitScene){
-    if(undefined==runInitScene){
-	   runInitScene=true;
-	}
-	if(run){
-		stop();
-	}
-	if(!sceneAdds){
-		sceneSelector();
-	}
-	run=true;
-	runStart=performance.now();
-	if(undefined==rotationStart || 
-		undefined==pauseStart){
-	   rotationStart=runStart;
-	}else{
-	   rotationStart+=(runStart-pauseStart);
-	}
-	init(runInitScene);
-	$("#power").text("Stop");
-}
-
-function fixNumber(n,scale){
-	return (parseInt(n.toString()/scale)).toFixed()*scale;
-}
-/** 
+            function fixNumber(n, scale) {
+                return (parseInt(n.toString() / scale)).toFixed() * scale;
+            }
+            /** 
 Show dynamic number so that it seems quite stable 
 integer if possible
 */
-function showDynamicNumber(n){
-	var precision=0;
-	if(n>10000){
-	    return fixNumber(n,1000);
-	}else if(n>1000){
-	    return fixNumber(n,100);
-	}else if(n>5){
-		precision=0;
-	}else if(n>0.5){
-		precision=1;	   
-	}else if(n>0.05){
-		precision=2;	   
-	}else{
-		return n.toString();
-	}
-	return n.toFixed(precision);
-}
+            function showDynamicNumber(n) {
+                var precision = 0;
+                if (n > 10000) {
+                    return fixNumber(n, 1000);
+                } else if (n > 1000) {
+                    return fixNumber(n, 100);
+                } else if (n > 5) {
+                    precision = 0;
+                } else if (n > 0.5) {
+                    precision = 1;
+                } else if (n > 0.05) {
+                    precision = 2;
+                } else {
+                    return n.toString();
+                }
+                return n.toFixed(precision);
+            }
 
-function updateStats(){
-	if(!run){
-		return;
-	}
-	var renderElapsed=renderEnd-renderStart;
-	var s="";
-	renderElapsedSum+=renderElapsed;
-	renderCount++;
-	fps=1000*renderCount/(renderEnd-runStart);
-    $( "#fps" ).text(showDynamicNumber(fps));
-	s="Pending";
-	if(renderElapsedSum>0){
-		theoreticalFps=1000*renderCount/renderElapsedSum;
-		s=showDynamicNumber(theoreticalFps);
-	}
-	$( "#theoreticalFps" ).text(s);
-	$("#camera").text("("+
-	camera.position.x.toFixed(2)+", "+
-	camera.position.y.toFixed(2)+", "+
-	camera.position.z.toFixed(2)+")");
-}
+            function updateStats() {
+                if (!run) {
+                    return;
+                }
+                var renderElapsed = renderEnd - renderStart;
+                var s = "";
+                renderElapsedSum += renderElapsed;
+                renderCount++;
+                fps = 1000 * renderCount / (renderEnd - runStart);
+                $("#fps").text(showDynamicNumber(fps));
+                s = "Pending";
+                if (renderElapsedSum > 0) {
+                    theoreticalFps = 1000 * renderCount / renderElapsedSum;
+                    s = showDynamicNumber(theoreticalFps);
+                }
+                $("#theoreticalFps").text(s);
+                $("#camera").text("(" + camera.position.x.toFixed(2) + ", " + camera.position.y.toFixed(2) + ", " + camera.position.z.toFixed(2) + ")");
+            }
 
-var rendererInitRequested;	
-function render(timestamp) {
-	if(!run){
-		return;
-	}
-	renderStart=performance.now();
-	requestID=requestAnimationFrame(render);
-	controls.update();
-	renderers.forEach(function(renderer,index,array){
-		if(typeof renderer._initialized !== "boolean"){
-			renderer.render(scene, camera);
-		}else{
-			if(renderer._initialized){
-				renderer.render(scene, camera);				
-			}else{
-				if(!rendererInitRequested){
-					renderer.init().then(rendererInitialized);
-					rendererInitRequested=true
-				}
-			}
-		}
-	});
-	renderEnd=performance.now();
-	setTimeout(function(){updateStats();},10);	
-}
+            var rendererInitRequested;
+            function render(timestamp) {
+                if (!run) {
+                    return;
+                }
+                renderStart = performance.now();
+                requestID = requestAnimationFrame(render);
+                controls.update();
+                renderers.forEach(function(renderer, index, array) {
+                    if (typeof renderer._initialized !== "boolean") {
+                        renderer.render(scene, camera);
+                    } else {
+                        if (renderer._initialized) {
+                            renderer.render(scene, camera);
+                        } else {
+                            if (!rendererInitRequested) {
+                                renderer.init().then(rendererInitialized);
+                                rendererInitRequested = true
+                            }
+                        }
+                    }
+                });
+                renderEnd = performance.now();
+                setTimeout(function() {
+                    updateStats();
+                }, 10);
+            }
 
-function rendererInitialized(valueOrReason){
-}	
+            function rendererInitialized(valueOrReason) {}
 
-function sceneSelector(){
-	sceneAdds=$("select.sceneSelector").val();
-	start();
-}
+            function sceneSelector() {
+                sceneAdds = $("select.sceneSelector").val();
+                start();
+            }
 
-/**
+            /**
 */
-function getRandom(scale){
-   if(!scale){
-      scale=1;
-   }
-   return scale*Math.random();
-}
+            function getRandom(scale) {
+                if (!scale) {
+                    scale = 1;
+                }
+                return scale * Math.random();
+            }
 
-function cubes(){
-	for(var i=0;i<objectCount;i++){
-	    var color = new THREE.Color();
-	    var h=1;
-		var m=getRandom(0.2);
-		var l=getRandom(0.1);
-		switch (i%3){
-			case 0:
-			color.setRGB(h,m,l);
-			break;
-			case 1:
-			color.setRGB(l,h,m);
-			break;
-			case 2:
-			color.setRGB(m,l,h);
-			break;
-			default:
-			color.setRGB(m,m,m);			
-		}		
-		var size=0.3*getRandom(0.7);
-		var geometry = new THREE.BoxGeometry(size,size,size);
-		var material = new THREE.MeshBasicMaterial( 
-		{ 
-		transparent: true,
-		opacity: 0.2,
-		depthWrite: false
-		} );
-		material.color=color;
-		var cube = new THREE.Mesh( geometry, material );
-	    cube.position.set(getRandom(),getRandom(),getRandom());
-		scene.add( cube );
-	}
-}
+            function cubes() {
+                for (var i = 0; i < objectCount; i++) {
+                    var color = new THREE.Color();
+                    var h = 1;
+                    var m = getRandom(0.2);
+                    var l = getRandom(0.1);
+                    switch (i % 3) {
+                    case 0:
+                        color.setRGB(h, m, l);
+                        break;
+                    case 1:
+                        color.setRGB(l, h, m);
+                        break;
+                    case 2:
+                        color.setRGB(m, l, h);
+                        break;
+                    default:
+                        color.setRGB(m, m, m);
+                    }
+                    var size = 0.3 * getRandom(0.7);
+                    var geometry = new THREE.BoxGeometry(size,size,size);
+                    var material = new THREE.MeshBasicMaterial({
+                        transparent: true,
+                        opacity: 0.2,
+                        depthWrite: false
+                    });
+                    material.color = color;
+                    var cube = new THREE.Mesh(geometry,material);
+                    cube.position.set(getRandom(), getRandom(), getRandom());
+                    scene.add(cube);
+                }
+            }
 
-function ambientLight(){
-	var light = new THREE.AmbientLight( 0x404040 );
-	scene.add( light );
-}
+            function ambientLight() {
+                var light = new THREE.AmbientLight(0x404040);
+                scene.add(light);
+            }
 
-var threeLpWebGPURenderer,threeHpWebGPURenderer;
-var threeWebGLRenderer,gpuRenderer;
-function initScene(){
-	const powerPreference=$("#powerPreference").val();
-	renderers.length=0;
-	$('canvas').hide();
-	var rendererNames=$('#renderer').val();
-	rendererNames.forEach(function(renderer,index,array){
-		switch(renderer){
-			case WebGPU:
-				switch(powerPreference){
-					case "low-power":
-						if(!threeLpWebGPURenderer){
-							threeLpWebGPURenderer = new WEBGPU.WebGPURenderer(
-								{canvas: threeLp});//,powerPreference: powerPreference});
-						}
-						$('#threeLp').show();
-						renderers.push(threeLpWebGPURenderer);
-						break;
-					case "high-performance":
-						if(!threeHpWebGPURenderer){
-							threeHpWebGPURenderer = new WEBGPU.WebGPURenderer(
-								{canvas: threeHp,powerPreference: powerPreference});
-						}
-						$('#threeHp').show();
-						renderers.push(threeHpWebGPURenderer);
-						break;
-				}
-				break;
-			case gpu:
-				if(!gpuRenderer){
-					gpuRenderer=new GpuRenderer();
-				}
-				$('#gpu').show();
-				renderers.push(gpuRenderer);
-				break;
-			case WebGL:	
-			default:
-				if(!threeWebGLRenderer||true){
-					threeWebGLRenderer = new THREE.WebGLRenderer(
-						{canvas: three,powerPreference: powerPreference});
-				}
-				$('#three').show();
-				renderers.push(threeWebGLRenderer);
-				break;
-		}
-	});
-	renderers.forEach(function(renderer,index,array){	
-		renderer.setSize( window.innerWidth, window.innerHeight );
-		document.body.appendChild( renderer.domElement );
-		scene = new THREE.Scene();
-		for(var i=0;i<sceneAdds.length;i++){
-		  var name=sceneAdds[i];
-		  eval(name).call();
-		}
-		if(index===0){
-			camera = new THREE.PerspectiveCamera
-				( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
-			camera.position.x=0.25;
-			camera.position.y=0.64;
-			camera.position.z=1.68;
-			lookat=new THREE.Vector3( 0.5, 0.5, 0.5 );
-			camera.lookAt(lookat);
-		    controls = new TrackballControls( camera, renderer.domElement);
-			controls.rotateSpeed = 10.0;
-			controls.zoomSpeed = 1.2;
-			controls.panSpeed = 0.8;
-			controls.noZoom = false;
-			controls.noPan = false;
-			controls.noRotate= false;
-			controls.staticMoving = true;
-			controls.dynamicDampingFactor = 0.3;
-		}
-	});
-}
-
-class GpuRenderer {
-	constructor(){
-		const canvas=$("#gpu")[0];
-		this.domElement=canvas;
-		this.context = canvas.getContext("webgpu");
-		const format = navigator.gpu.getPreferredCanvasFormat();
-		this.context.configure({ device, format });
-		this.shaderModule = device.createShaderModule({
-	    code: `
-	      @vertex
-	      fn vs(@builtin(vertex_index) i : u32) -> @builtin(position) vec4f {
-	        var pos = array<vec2f, 3>(
-	          vec2f(0.0, 0.5),
-	          vec2f(-0.5, -0.5),
-	          vec2f(0.5, -0.5)
-	        );
-	        return vec4f(pos[i], 0.0, 1.0);
-	      }
-	      @fragment
-	      fn fs() -> @location(0) vec4f {
-	        return vec4f(1.0, 0.0, 0.0, 1.0); // Red
-	      }
-	    `
-	  });
-	  this.pipeline = device.createRenderPipeline({
-	    layout: "auto",
-	    vertex: { module: this.shaderModule, entryPoint: "vs" },
-	    fragment: {
-	      module: this.shaderModule,
-	      entryPoint: "fs",
-	      targets: [{ format }]
-	    },
-	    primitive: { topology: "triangle-list" }
-	  });
-	}
-	setSize(width,height){
+            var threeLpWebGPURenderer, threeHpWebGPURenderer;
+            var threeWebGLRenderer, gpuRenderer;
+            function initScene() {
+                const powerPreference = $("#powerPreference").val();
+                renderers.length = 0;
+                $('canvas').hide();
+                var rendererNames = $('#renderer').val();
+                rendererNames.forEach(function(renderer, index, array) {
+                    switch (renderer) {
+                    case WebGPU:
+                        switch (powerPreference) {
+                        case "low-power":
+                            if (!threeLpWebGPURenderer) {
+                                threeLpWebGPURenderer = new WEBGPU.WebGPURenderer({
+                                    canvas: threeLp
+                                });
+                                //,powerPreference: powerPreference});
+                            }
+                            $('#threeLp').show();
+                            renderers.push(threeLpWebGPURenderer);
+                            break;
+                        case "high-performance":
+                            if (!threeHpWebGPURenderer) {
+                                threeHpWebGPURenderer = new WEBGPU.WebGPURenderer({
+                                    canvas: threeHp,
+                                    powerPreference: powerPreference
+                                });
+                            }
+                            $('#threeHp').show();
+                            renderers.push(threeHpWebGPURenderer);
+                            break;
+                        }
+                        break;
+                    case gpu:
+                        if (!gpuRenderer) {
+                            gpuRenderer = new GpuRenderer();
+                        }
+                        $('#gpu').show();
+                        renderers.push(gpuRenderer);
+                        break;
+                    case WebGL:
+                    default:
+                        if (!threeWebGLRenderer || true) {
+                            threeWebGLRenderer = new THREE.WebGLRenderer({
+                                canvas: three,
+                                powerPreference: powerPreference
+                            });
+                        }
+                        $('#three').show();
+                        renderers.push(threeWebGLRenderer);
+                        break;
+                    }
+                });
+                renderers.forEach(function(renderer, index, array) {
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+                    document.body.appendChild(renderer.domElement);
+                    scene = new THREE.Scene();
+                    for (var i = 0; i < sceneAdds.length; i++) {
+                        var name = sceneAdds[i];
+                        eval(name).call();
+                    }
+                    if (index === 0) {
+                        camera = new THREE.PerspectiveCamera(75,window.innerWidth / window.innerHeight,0.1,1000);
+                        camera.position.x = 0.25;
+                        camera.position.y = 0.64;
+                        camera.position.z = 1.68;
+                        lookat = new THREE.Vector3(0.5,0.5,0.5);
+                        camera.lookAt(lookat);
+                        controls = new TrackballControls(camera,renderer.domElement);
+                        controls.rotateSpeed = 10.0;
+                        controls.zoomSpeed = 1.2;
+                        controls.panSpeed = 0.8;
+                        controls.noZoom = false;
+                        controls.noPan = false;
+                        controls.noRotate = false;
+                        controls.staticMoving = true;
+                        controls.dynamicDampingFactor = 0.3;
+                    }
+                });
+            }
+            /** code from https://webgpufundamentals.org/webgpu/lessons/webgpu-optimization.html is used
+	as reference
+*/
+            class GpuRenderer {
+                constructor() {
+                    const canvas = $("#gpu")[0];
+                    this.domElement = canvas;
+                    this.context = canvas.getContext("webgpu");
+                    const format = navigator.gpu.getPreferredCanvasFormat();
+                    this.context.configure({
+                        device,
+                        format
+                    });
+                    this.shaderModule = device.createShaderModule({
+                        code: `
 		
-	}
-	render(scene, camera){
-	  const commandEncoder = device.createCommandEncoder();
-	  const renderPass = commandEncoder.beginRenderPass({
-	    colorAttachments: [{
-	      view: this.context.getCurrentTexture().createView(),
-	      loadOp: "clear",
-	      storeOp: "store",
-	      clearValue: { r: 0.9, g: 0.9, b: 0.9, a: 1.0 }
-	    }]
-	  });
-	  renderPass.setPipeline(this.pipeline);
-	  renderPass.draw(3);
-	  renderPass.end();
-	  device.queue.submit([commandEncoder.finish()]);		
-	}
-}	
-	
-function initStats(){
-	renderCount=0;
-	renderElapsedSum=0;
-}
+      struct GlobalUniforms {
+        viewProjection: mat4x4f,
+        lightWorldPosition: vec3f,
+        viewWorldPosition: vec3f,
+      };
+      struct MaterialUniforms {
+        color: vec4f,
+        shininess: f32,
+      };
 
-function init(runInitScene){
-    if(undefined==scene || runInitScene){
-		initScene();
-	}
-	initStats();
-	render();
-}
+      struct PerObjectUniforms {
+        normalMatrix: mat3x3f,
+        world: mat4x4f,
+      };
 
-var adapter;
-var device;	
-async function initGpu(){
-	if(!adapter){
-		adapter = await navigator.gpu.requestAdapter();//{powerPreference:"high-performance"});
-	}
-	if(!device){
-		device = await adapter.requestDevice();
-	}
-}
-	
-$(function() {
-    $( "#objectCount-slider" ).slider({
-      min: 1,
-      max: 1000,
-	  step: 1,
-      value: objectCount,
-      slide: function( event, ui ) {
-        $( "#objectCount" ).val( ui.value );
-		objectCount=parseFloat(ui.value);
-		start();
+      struct Vertex {
+        @location(0) position: vec4f,
+        @location(1) normal: vec3f,
+        @location(2) texcoord: vec2f,
+      };
+
+      struct VSOutput {
+        @builtin(position) position: vec4f,
+        @location(0) normal: vec3f,
+        @location(1) surfaceToLight: vec3f,
+        @location(2) surfaceToView: vec3f,
+        @location(3) texcoord: vec2f,
+      };
+
+      @group(0) @binding(0) var diffuseTexture: texture_2d<f32>;
+      @group(0) @binding(1) var diffuseSampler: sampler;
+      @group(0) @binding(2) var<uniform> obj: PerObjectUniforms;
+      @group(0) @binding(3) var<uniform> glb: GlobalUniforms;
+      @group(0) @binding(4) var<uniform> material: MaterialUniforms;
+
+      @vertex fn vs(vert: Vertex) -> VSOutput {
+        var vsOut: VSOutput;
+        vsOut.position = glb.viewProjection * obj.world * vert.position;
+
+        // Orient the normals and pass to the fragment shader
+        vsOut.normal = obj.normalMatrix * vert.normal;
+
+        // Compute the world position of the surface
+        let surfaceWorldPosition = (obj.world * vert.position).xyz;
+
+        // Compute the vector of the surface to the light
+        // and pass it to the fragment shader
+        vsOut.surfaceToLight = glb.lightWorldPosition - surfaceWorldPosition;
+
+        // Compute the vector of the surface to the light
+        // and pass it to the fragment shader
+        vsOut.surfaceToView = glb.viewWorldPosition - surfaceWorldPosition;
+
+        // Pass the texture coord on to the fragment shader
+        vsOut.texcoord = vert.texcoord;
+
+        return vsOut;
       }
-    });
-    $( "#objectCount" ).val( $( "#objectCount-slider" ).slider( "value" ) );
-	$("#renderer,#powerPreference").on("change",function(){
-		if(run){
-			stop();
-			start();
-		}
-	});
-	initGpu().then(enableWebGpu).catch(webGpuFailed);
-	$("#power").on("click",stopOrStart);
-	start();
-});
-function enableWebGpu(){
-	$("option.WebGPU").prop("disabled",false);
-}
-function webGpuFailed(err){
-	console.error(err);
-}	
-</script>
-<div id="text">		
-<p>This tool is designed to be used with other tools</p> 
-<ul>
-<li>TaskManager to check CPU and GPU usage</li>
-<li>Javascript profiler in Browser</li>
-<li><a href="http://www.techpowerup.com/gpuz/">GPU-Z</a>
-for monitoring GPU load during execution
-</li>
-<li>Your ears to hear if fans make too much noise</li>
-</ul>
-Note that javascript is single threaded and maximum cpu load due to this program is 1/number of cpus.
+
+      @fragment fn fs(vsOut: VSOutput) -> @location(0) vec4f {
+        // Because vsOut.normal is an inter-stage variable 
+        // it's interpolated so it will not be a unit vector.
+        // Normalizing it will make it a unit vector again
+        let normal = normalize(vsOut.normal);
+
+        let surfaceToLightDirection = normalize(vsOut.surfaceToLight);
+        let surfaceToViewDirection = normalize(vsOut.surfaceToView);
+        let halfVector = normalize(
+          surfaceToLightDirection + surfaceToViewDirection);
+
+        // Compute the light by taking the dot product
+        // of the normal with the direction to the light
+        let light = dot(normal, surfaceToLightDirection);
+
+        var specular = dot(normal, halfVector);
+        specular = select(
+            0.0,                           // value if condition is false
+            pow(specular, material.shininess),  // value if condition is true
+            specular > 0.0);               // condition
+
+        let diffuse = material.color * textureSample(diffuseTexture, diffuseSampler, vsOut.texcoord);
+        // Lets multiply just the color portion (not the alpha)
+        // by the light
+        let color = diffuse.rgb * light + specular;
+        return vec4f(color, diffuse.a);
+      }	`,
+                    });
+                    this.globalUniformBufferSize = (16 + 4 + 4) * 4;
+                    this.globalUniformBuffer = device.createBuffer({
+                        label: 'global uniforms',
+                        size: this.globalUniformBufferSize,
+                        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+                    });
+                    this.globalUniformValues = new Float32Array(this.globalUniformBufferSize / 4);
+                    this.kViewProjectionOffset = 0;
+                    this.kLightWorldPositionOffset = 16;
+                    this.kViewWorldPositionOffset = 20;
+                    this.viewProjectionValue = this.globalUniformValues.subarray(this.kViewProjectionOffset, this.kViewProjectionOffset + 16);
+                    this.lightWorldPositionValue = this.globalUniformValues.subarray(this.kLightWorldPositionOffset, this.kLightWorldPositionOffset + 3);
+                    this.viewWorldPositionValue = this.globalUniformValues.subarray(this.kViewWorldPositionOffset, this.kViewWorldPositionOffset + 3);
+                    this.pipeline = device.createRenderPipeline({
+                        label: 'plain WebGPU renderPipeline',
+                        layout: "auto",
+                        vertex: {
+                            module: this.shaderModule,
+                            entryPoint: "vs",
+                            buffers: [{
+                                arrayStride: (3 + 3 + 2) * 4,
+                                // 8 floats
+                                attributes: [{
+                                    shaderLocation: 0,
+                                    offset: 0 * 4,
+                                    format: 'float32x3'
+                                }, // position
+                                {
+                                    shaderLocation: 1,
+                                    offset: 3 * 4,
+                                    format: 'float32x3'
+                                }, // normal
+                                {
+                                    shaderLocation: 2,
+                                    offset: 6 * 4,
+                                    format: 'float32x2'
+                                }, // texcoord
+                                ],
+                            }, ],
+                        },
+                        fragment: {
+                            module: this.shaderModule,
+                            entryPoint: "fs",
+                            targets: [{
+                                format
+                            }]
+                        },
+                        primitive: {
+                            topology: "triangle-list",
+                            cullMode: 'back'
+                        },
+                        depthStencil: {
+                          depthWriteEnabled: true,
+                          depthCompare: 'less',
+                          format: 'depth24plus',
+                        },
+                    });
+                    this.renderPassDescriptor = {
+                        label: 'renderPass',
+                        colorAttachments: [{
+                            // view: <- to be filled out when we render
+                            clearValue: [0.7, 0.7, 0.7, 1],
+                            loadOp: 'clear',
+                            storeOp: 'store',
+                        }, ],
+                        depthStencilAttachment: {
+                            // view: <- to be filled out when we render
+                            depthClearValue: 1.0,
+                            depthLoadOp: 'clear',
+                            depthStoreOp: 'store',
+                        },
+                    };
+
+                }
+                setSize(width, height) {}
+                render(scene, camera) {
+                    const context=this.domElement.getContext('webgpu');
+                    const canvasTexture = context.getCurrentTexture();
+                    this.renderPassDescriptor.colorAttachments[0].view = canvasTexture.createView();
+                    // If we don't have a depth texture OR if its size is different
+                    // from the canvasTexture when make a new depth texture
+                    if (!this.depthTexture ||
+                        this.depthTexture.width !== canvasTexture.width ||
+                        this.depthTexture.height !== canvasTexture.height) {
+                      if (this.depthTexture) {
+                        this.depthTexture.destroy();
+                      }
+                      this.depthTexture = device.createTexture({
+                        size: [canvasTexture.width, canvasTexture.height],
+                        format: 'depth24plus',
+                        usage: GPUTextureUsage.RENDER_ATTACHMENT,
+                      });
+                    }
+                    this.renderPassDescriptor.depthStencilAttachment.view = this.depthTexture.createView();
+                    const commandEncoder = device.createCommandEncoder();
+                    const renderPass = commandEncoder.beginRenderPass(this.renderPassDescriptor);
+                    renderPass.setPipeline(this.pipeline);
+                    renderPass.end();
+                    device.queue.submit([commandEncoder.finish()]);
+                }
+            }
+
+            function initStats() {
+                renderCount = 0;
+                renderElapsedSum = 0;
+            }
+
+            function init(runInitScene) {
+                if (undefined == scene || runInitScene) {
+                    initScene();
+                }
+                initStats();
+                render();
+            }
+
+            var adapter;
+            var device;
+            async function initGpu() {
+                if (!adapter) {
+                    adapter = await navigator.gpu.requestAdapter();
+                    //{powerPreference:"high-performance"});
+                }
+                if (!device) {
+                    device = await adapter.requestDevice();
+                }
+            }
+
+            $(function() {
+                $("#objectCount-slider").slider({
+                    min: 1,
+                    max: 1000,
+                    step: 1,
+                    value: objectCount,
+                    slide: function(event, ui) {
+                        $("#objectCount").val(ui.value);
+                        objectCount = parseFloat(ui.value);
+                        start();
+                    }
+                });
+                $("#objectCount").val($("#objectCount-slider").slider("value"));
+                $("#renderer,#powerPreference").on("change", function() {
+                    if (run) {
+                        stop();
+                        start();
+                    }
+                });
+                initGpu().then(enableWebGpu).catch(webGpuFailed);
+                $("#power").on("click", stopOrStart);
+                start();
+            });
+            function enableWebGpu() {
+                $("option.WebGPU").prop("disabled", false);
+            }
+            function webGpuFailed(err) {
+                console.error(err);
+            }
+        </script>
+        <div id="text">
+            <p>This tool is designed to be used with other tools</p>
+            <ul>
+                <li>TaskManager to check CPU and GPU usage</li>
+                <li>Javascript profiler in Browser</li>
+                <li>
+                    <a href="http://www.techpowerup.com/gpuz/">GPU-Z</a>
+                    for monitoring GPU load during execution
+
+                
+                
+                </li>
+                <li>Your ears to hear if fans make too much noise</li>
+            </ul>
+            Note that javascript is single threaded and maximum cpu load due to this program is 1/number of cpus.
 <br/>
-Controls are active in top window <br/>	
-Press and hold left mouse button to rotate <br/>
-Press and hold right mouse button to pan(move) <br/>
-Use mouse scroll to zoom <br/>
-Camera @: <span id="camera"></span>
-<br/>
-actual FPS: <span id="fps"></span>
-<br/>
-theoretical FPS: <span id="theoreticalFps"></span>
-<h3>powerPreference</h3>
-As of 2025-07 <a href="https://crbug.com/369219127">powerPreference is not effective in windows environment.</a>
-<br/>
-<select id="powerPreference" title="powerPreference">
-  <option selected="true">low-power</option>
-  <option>high-performance</option>	
-</select>
-<h3>renderer</h3>
-<select id="renderer" title="renderer" multiple="multiple">
-  <option selected="true" value="WebGL">Three using WebGL</option>
-  <option class="WebGPU" disabled value="WebGPU">Three using WebGPU</option>	
-  <option class="WebGPU" disabled value="gpu">Plain WebGPU</option>	
-</select>
-<br/>
-<h3>Objects</h3>
-<select class="sceneSelector" title="Objects" multiple="multiple">
-  <option selected="true">cubes</option>
-</select>
-<br/>
-<label for="objectCount">Count:</label>
-<input type="text" title="Object count" id="objectCount" style="border: 0;"/>
-<div id="objectCount-slider" style="width: 30%;"></div>
-<h3>Lights</h3>
-<select class="sceneSelector" title="Lights" multiple="multiple">
-  <option selected="true">ambientLight</option>
-</select>
-<br/>
-<button id="power">Start</button>	
-</div>
-<canvas title="Three using WebGL" id="three"></canvas>	
-<canvas title="Three using WebGPU" id="threeLp"></canvas>	
-<canvas title="Three using WebGPU" id="threeHp"></canvas>	
-<canvas title="Plain WebGPU" id="gpu"></canvas>	
-	</body>
+            Controls are active in top window <br/>
+            Press and hold left mouse button to rotate <br/>
+            Press and hold right mouse button to pan(move) <br/>
+            Use mouse scroll to zoom <br/>
+            Camera @: <span id="camera"></span>
+            <br/>
+            actual FPS: <span id="fps"></span>
+            <br/>
+            theoretical FPS: <span id="theoreticalFps"></span>
+            <h3>powerPreference</h3>
+            As of 2025-07 <a href="https://crbug.com/369219127">powerPreference is not effective in windows environment.</a>
+            <br/>
+            <select id="powerPreference" title="powerPreference">
+                <option selected="true">low-power</option>
+                <option>high-performance</option>
+            </select>
+            <h3>renderer</h3>
+            <select id="renderer" title="renderer" multiple="multiple">
+                <option selected="true" value="WebGL">Three using WebGL</option>
+                <option class="WebGPU" disabled value="WebGPU">Three using WebGPU</option>
+                <option class="WebGPU" disabled value="gpu">Plain WebGPU</option>
+            </select>
+            <br/>
+            <h3>Objects</h3>
+            <select class="sceneSelector" title="Objects" multiple="multiple">
+                <option selected="true">cubes</option>
+            </select>
+            <br/>
+            <label for="objectCount">Count:</label>
+            <input type="text" title="Object count" id="objectCount" style="border: 0;"/>
+            <div id="objectCount-slider" style="width: 30%;"></div>
+            <h3>Lights</h3>
+            <select class="sceneSelector" title="Lights" multiple="multiple">
+                <option selected="true">ambientLight</option>
+            </select>
+            <br/>
+            <button id="power">Start</button>
+        </div>
+        <canvas title="Three using WebGL" id="three"></canvas>
+        <canvas title="Three using WebGPU" id="threeLp"></canvas>
+        <canvas title="Three using WebGPU" id="threeHp"></canvas>
+        <canvas title="Plain WebGPU" id="gpu"></canvas>
+    </body>
 </html>
